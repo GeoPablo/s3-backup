@@ -50,9 +50,9 @@ Now if you want to backup your object storage again you can use these files and 
 Now run the script again.
 And you can see that the script downloaded only the newly added files from the object storage (_in our case - no new file was added_)
 
+![Image of prompt](https://raw.githubusercontent.com/GeoPablo/s3-backup/master/readme-images/download-with-history-4.PNG)
+
 If you want to test this and in order to see that it will only download newly added files, use one of these two options:
 
 - delete one item from the **.json** file and then delete it from the backup folder and run the script again
 - add a new image on the storage
-
-![Image of prompt](https://raw.githubusercontent.com/GeoPablo/s3-backup/master/readme-images/download-with-history-4.PNG)
