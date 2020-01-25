@@ -1,0 +1,24 @@
+{
+  "name": "simple-s3-backup",
+  "version": "1.0.0",
+  "description": "Backup your object storage",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "s3",
+    "object",
+    "storage",
+    "backup"
+  ],
+  "author": "Georgian Stan",
+  "license": "ISC",
+  "dependencies": {
+    "aws-sdk": "^2.610.0",
+    "colors": "^1.4.0",
+    "dotenv": "^8.2.0",
+    "inquirer": "^7.0.4",
+    "single-line-log": "^1.1.2"
+  }
+}
