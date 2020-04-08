@@ -5,7 +5,7 @@
  * Created Date: Saturday, January 25th 2020, 11:20:45 am
  * Author: Georgian Stan (georgian.stan8@gmail.com)
  * -----
- * Last Modified: Saturday, 25th January 2020 12:26:01 pm
+ * Last Modified: Wednesday, 8th April 2020 4:21:12 pm
  * Modified By: Georgian Stan (georgian.stan8@gmail.com>)
  * ------------------------------------
  * Javascript will save your soul!
@@ -54,7 +54,7 @@ let OUTPUT_DIR = `backup-${BUCKET_TO_BACKUP}-${currentTimestamp}`; // ? Date.now
 const s3 = new AWS.S3({
   endpoint,
   accessKeyId,
-  secretAccessKey
+  secretAccessKey,
 });
 
 /**
@@ -85,17 +85,17 @@ function printTotalProgress(current, total) {
 async function downloadFile(outputDir, fileKey) {
   const params = {
     Bucket: BUCKET_TO_BACKUP,
-    Key: fileKey
+    Key: fileKey,
   };
 
   const outputPath = path.join(__dirname, outputDir, fileKey);
   const fileStream = fs.createWriteStream(outputPath);
   s3.getObject(params)
     .createReadStream()
-    .on("error", function(err) {
+    .on("error", function (err) {
       console.log(err);
     })
-    .on("data", function(chunk) {
+    .on("data", function (chunk) {
       BYTES_DOWNLOADED += chunk.length;
       printTotalProgress(BYTES_DOWNLOADED, TOTAL_BYTES_TO_DOWNLOAD);
     })
@@ -109,7 +109,7 @@ async function createFolderStructure(outputDir, Prefix = "") {
   const params = {
     Bucket: BUCKET_TO_BACKUP,
     Delimiter: "/",
-    Prefix
+    Prefix,
   };
 
   const { CommonPrefixes } = await s3.listObjects(params).promise();
@@ -132,24 +132,34 @@ async function createFolderStructure(outputDir, Prefix = "") {
 async function getAListWithAllFiles() {
   const output = [];
 
-  async function clojure(Prefix = "") {
+  async function clojure(Prefix = "", moreParams = {}) {
     const params = {
       Bucket: BUCKET_TO_BACKUP,
       Delimiter: "/",
-      Prefix
+      Prefix,
+      ...moreParams,
     };
 
-    const { Contents, CommonPrefixes } = await s3.listObjects(params).promise();
+    const {
+      Contents,
+      CommonPrefixes,
+      IsTruncated,
+      NextMarker,
+    } = await s3.listObjects(params).promise();
 
     if (Contents.length) {
-      Contents.forEach(content => {
+      Contents.forEach((content) => {
         const { Size, Key } = content;
 
         output.push({
           size: Size,
-          key: Key
+          key: Key,
         });
       });
+
+      if (IsTruncated) {
+        await clojure(Prefix, { Marker: NextMarker });
+      }
     }
 
     if (CommonPrefixes.length) {
@@ -170,7 +180,7 @@ async function getAListWithAllFiles() {
 function trimOwnedFiles(files, currentFiles) {
   const output = [];
 
-  files.forEach(file => {
+  files.forEach((file) => {
     const { key } = file;
     if (!currentFiles[key]) {
       output.push(file);
@@ -183,7 +193,7 @@ function trimOwnedFiles(files, currentFiles) {
 /**
  * * Main
  */
-(async function() {
+(async function () {
   console.log("".white);
   console.log("================= Program Started =================".bgMagenta);
 
@@ -192,19 +202,19 @@ function trimOwnedFiles(files, currentFiles) {
       type: "input",
       name: "historyFilePath",
       message: `Path to .json file with current files or empty spaces to download all files with no history`,
-      filter: function(val) {
+      filter: function (val) {
         return val.trim();
-      }
+      },
     },
 
     {
       type: "input",
       name: "downloadFolder",
       message: `Path to folder in which to download files or empty spaces to download all files in a new directory`,
-      filter: function(val) {
+      filter: function (val) {
         return val.trim();
-      }
-    }
+      },
+    },
   ];
 
   // * ask the user if he wants to download (x amount of files with y amount of bytes); useful in case that the object storage is to big and the user does not have the required disk size available
@@ -217,10 +227,10 @@ function trimOwnedFiles(files, currentFiles) {
         message: `Are you sure you want to download ${totalFilesLength} files (${bytesToSize(
           totalSize
         )})?`,
-        filter: function(val) {
+        filter: function (val) {
           return val.toLowerCase().trim();
-        }
-      }
+        },
+      },
     ];
   };
   // * get current files
@@ -239,7 +249,7 @@ function trimOwnedFiles(files, currentFiles) {
 
   // * sum the files sizes (trimmed ones)
   const totalSizeOfFilesToDownload = trimmedFiles
-    .map(file => file.size)
+    .map((file) => file.size)
     .reduce((prev, curr) => prev + curr, 0);
   TOTAL_BYTES_TO_DOWNLOAD = totalSizeOfFilesToDownload;
 
@@ -272,14 +282,14 @@ function trimOwnedFiles(files, currentFiles) {
   const currentAndNewFiles = JSON.parse(JSON.stringify(currentFiles));
 
   trimmedFiles
-    .map(file => file.key)
-    .forEach(key => (currentAndNewFiles[key] = 1));
+    .map((file) => file.key)
+    .forEach((key) => (currentAndNewFiles[key] = 1));
 
   const pathToHistoryFile = path.join(__dirname, OUTPUT_HISTORY_FILE);
   jsonfile.writeFile(pathToHistoryFile, currentAndNewFiles);
 
   // * start download
-  trimmedFiles.forEach(file => {
+  trimmedFiles.forEach((file) => {
     downloadFile(OUTPUT_DIR, file.key);
   });
 })();
