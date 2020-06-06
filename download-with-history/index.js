@@ -5,7 +5,7 @@
  * Created Date: Saturday, January 25th 2020, 11:20:45 am
  * Author: Georgian Stan (georgian.stan8@gmail.com)
  * -----
- * Last Modified: Wednesday, 8th April 2020 4:21:12 pm
+ * Last Modified: Saturday, 6th June 2020 1:54:37 pm
  * Modified By: Georgian Stan (georgian.stan8@gmail.com>)
  * ------------------------------------
  * Javascript will save your soul!
@@ -82,24 +82,29 @@ function printTotalProgress(current, total) {
 /**
  * * Download a file using the key
  */
-async function downloadFile(outputDir, fileKey) {
-  const params = {
-    Bucket: BUCKET_TO_BACKUP,
-    Key: fileKey,
-  };
+async function downloadFile(outputDir, file) {
+  return new Promise((resolve, reject) => {
+    const params = {
+      Bucket: BUCKET_TO_BACKUP,
+      Key: file.key,
+    };
 
-  const outputPath = path.join(__dirname, outputDir, fileKey);
-  const fileStream = fs.createWriteStream(outputPath);
-  s3.getObject(params)
-    .createReadStream()
-    .on("error", function (err) {
-      console.log(err);
-    })
-    .on("data", function (chunk) {
-      BYTES_DOWNLOADED += chunk.length;
-      printTotalProgress(BYTES_DOWNLOADED, TOTAL_BYTES_TO_DOWNLOAD);
-    })
-    .pipe(fileStream);
+    const outputPath = path.join(__dirname, outputDir, file.key);
+    const fileStream = fs.createWriteStream(outputPath);
+    s3.getObject(params)
+      .createReadStream()
+      .on("error", function (err) {
+        reject(err);
+      })
+      .on("data", function (chunk) {
+        BYTES_DOWNLOADED += chunk.length;
+        printTotalProgress(BYTES_DOWNLOADED, TOTAL_BYTES_TO_DOWNLOAD);
+      })
+      .on("end", () => {
+        resolve();
+      })
+      .pipe(fileStream);
+  });
 }
 
 /**
@@ -278,18 +283,29 @@ function trimOwnedFiles(files, currentFiles) {
     OUTPUT_DIR = downloadFolder;
   }
 
-  // ! It assumes that all downloads will succeed
   const currentAndNewFiles = JSON.parse(JSON.stringify(currentFiles));
+  const downloadedFiles = [];
 
   trimmedFiles
     .map((file) => file.key)
     .forEach((key) => (currentAndNewFiles[key] = 1));
 
+  // * start download
+  for (let i = 0; i < trimmedFiles.length; i++) {
+    const file = trimmedFiles[i];
+    try {
+      await downloadFile(OUTPUT_DIR, file);
+      downloadedFiles.push(file);
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
+  downloadedFiles
+    .map((file) => file.key)
+    .forEach((key) => (currentAndNewFiles[key] = 1));
+
+  // * update the history file
   const pathToHistoryFile = path.join(__dirname, OUTPUT_HISTORY_FILE);
   jsonfile.writeFile(pathToHistoryFile, currentAndNewFiles);
-
-  // * start download
-  trimmedFiles.forEach((file) => {
-    downloadFile(OUTPUT_DIR, file.key);
-  });
 })();
